@@ -1769,10 +1769,10 @@ namespace CapFrameX.Overlay
             if (needHybrid)
             {
                 // Only show P/E separation if the machine actually has E-cores!
-                // If the CPU has no E-cores, format standard threads without fake divider/fake E-cores.
+                // If there are no E-cores, keep it empty so no fake or duplicate sections appear.
                 hybridEntry.Value = eThreadLoads.Count > 0
                     ? CpuBarFormatter.FormatHybridBars(pThreadLoads, eThreadLoads)
-                    : (threadLoads.Count > 0 ? CpuBarFormatter.FormatTrackBars(threadLoads) : string.Empty);
+                    : string.Empty;
             }
 
             if (needHorizontal)
@@ -1842,7 +1842,8 @@ namespace CapFrameX.Overlay
                     }
                     else
                     {
-                        if (Regex.IsMatch(desc, @"\b(?:E|D|LPE|LP)\b", RegexOptions.IgnoreCase))
+                        // Match explicit patterns like "Core #1 E" or "Core 1 E", not single isolated letters elsewhere
+                        if (Regex.IsMatch(desc, @"Core\s*#?\d+\s+(?:E|D|LPE|LP)\b", RegexOptions.IgnoreCase))
                             isEcore = true;
                     }
 

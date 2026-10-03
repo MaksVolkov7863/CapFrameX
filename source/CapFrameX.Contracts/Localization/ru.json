@@ -1493,6 +1493,8 @@
     "CPU Active Time Average (ms)": "Среднее активное время ЦП (мс)",
     "CPU Info": "Процессор",
     "CPUBusy Avg": "Средняя занятость ЦП",
+    "CPU Core Loads (Bars)": "Загрузка ядер ЦП (столбики)",
+    "CPU Threads Load (Bars)": "Загрузка потоков ЦП (столбики)",
     "Custom CPU Name": "Своё имя ЦП",
     "Custom GPU Name": "Своё имя ГП",
     "Custom RAM Description": "Своё описание памяти",

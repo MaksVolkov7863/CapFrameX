@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using CapFrameX.Contracts.Configuration;
@@ -44,6 +44,8 @@ namespace CapFrameX.Overlay
                         return entry.ShowOnOverlay ? 30 : 10;
                     if (entry.Identifier == "CustomRAM")
                         return entry.ShowOnOverlay ? 50 : 10;
+                    if (entry.Identifier == "CpuThreadsLoadBar" || entry.Identifier == "CpuCoreLoadsBar")
+                        return 41;
                     return 10;
 
                 case EOverlayEntryType.GPU:
@@ -284,6 +286,38 @@ namespace CapFrameX.Overlay
                         Description = "Custom CPU Name",
                         GroupName = "CPU Info",
                         Value = "CPU",
+                        ValueFormat = default,
+                        ShowGraph = false,
+                        ShowGraphIsEnabled = false,
+                        Color = string.Empty,
+                        IsEntryEnabled = true
+                    },
+
+                    // CPU Threads Load (Bars)
+                    new OverlayEntryWrapper("CpuThreadsLoadBar")
+                    {
+                        OverlayEntryType = EOverlayEntryType.CX,
+                        ShowOnOverlay = false,
+                        ShowOnOverlayIsEnabled = true,
+                        Description = "CPU Threads Load (Bars)",
+                        GroupName = "CPU",
+                        Value = string.Empty,
+                        ValueFormat = default,
+                        ShowGraph = false,
+                        ShowGraphIsEnabled = false,
+                        Color = string.Empty,
+                        IsEntryEnabled = true
+                    },
+
+                    // CPU Core Loads (Bars)
+                    new OverlayEntryWrapper("CpuCoreLoadsBar")
+                    {
+                        OverlayEntryType = EOverlayEntryType.CX,
+                        ShowOnOverlay = false,
+                        ShowOnOverlayIsEnabled = true,
+                        Description = "CPU Core Loads (Bars)",
+                        GroupName = "CPU",
+                        Value = string.Empty,
                         ValueFormat = default,
                         ShowGraph = false,
                         ShowGraphIsEnabled = false,

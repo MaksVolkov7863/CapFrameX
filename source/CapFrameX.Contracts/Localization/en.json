@@ -1687,6 +1687,8 @@
     "Capture starting in": "Capture starting in",
     "Capture timer": "Capture timer",
     "Click-to-Screen-Response Latency (ms)": "Click-to-Screen-Response Latency (ms)",
+    "CPU Core Loads (Bars)": "CPU Core Loads (Bars)",
+    "CPU Threads Load (Bars)": "CPU Threads Load (Bars)",
     "Custom CPU Name": "Custom CPU Name",
     "Custom GPU Name": "Custom GPU Name",
     "Custom RAM Description": "Custom RAM Description",

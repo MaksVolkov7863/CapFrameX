@@ -1684,6 +1684,8 @@
     "Capture starting in": "La captura empieza en",
     "Capture timer": "Temporizador de captura",
     "Click-to-Screen-Response Latency (ms)": "Latencia del clic a la pantalla (ms)",
+    "CPU Core Loads (Bars)": "Carga de núcleos de CPU (barras)",
+    "CPU Threads Load (Bars)": "Carga de hilos de CPU (barras)",
     "Custom CPU Name": "Nombre personalizado de la CPU",
     "Custom GPU Name": "Nombre personalizado de la GPU",
     "Custom RAM Description": "Descripción personalizada de la RAM",

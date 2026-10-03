@@ -1,4 +1,4 @@
-﻿using CapFrameX.Contracts.Configuration;
+using CapFrameX.Contracts.Configuration;
 using CapFrameX.Contracts.Data;
 using CapFrameX.Contracts.Overlay;
 using CapFrameX.Contracts.RTSS;
@@ -237,6 +237,7 @@ namespace CapFrameX.Overlay
                 UpdateThreadAffinityState();
                 UpdateNetworkPing();
                 UpdateHookOverlayStatus();
+                UpdateCpuLoadBars();
 
                 if (updateFormats)
                 {
@@ -1683,6 +1684,106 @@ namespace CapFrameX.Overlay
                 ping.Value = Math.Round(_ping, 0, MidpointRounding.AwayFromZero);
                 SetPing();
             }
+        }
+
+        private void UpdateCpuLoadBars()
+        {
+            _identifierOverlayEntryDict.TryGetValue("CpuThreadsLoadBar", out IOverlayEntry threadsEntry);
+            _identifierOverlayEntryDict.TryGetValue("CpuCoreLoadsBar", out IOverlayEntry coresEntry);
+
+            bool needThreads = threadsEntry != null && threadsEntry.ShowOnOverlay;
+            bool needCores = coresEntry != null && coresEntry.ShowOnOverlay;
+
+            if (!needThreads && !needCores)
+                return;
+
+            var (threadLoads, coreLoads) = CollectCpuLoads();
+
+            if (needThreads)
+            {
+                threadsEntry.Value = threadLoads.Count > 0
+                    ? CpuBarFormatter.FormatThreadBars(threadLoads)
+                    : string.Empty;
+            }
+
+            if (needCores)
+            {
+                coresEntry.Value = coreLoads.Count > 0
+                    ? CpuBarFormatter.FormatCoreBars(coreLoads)
+                    : string.Empty;
+            }
+        }
+
+        private (List<double> Threads, List<double> Cores) CollectCpuLoads()
+        {
+            var threadList = new List<(int Core, int Thread, double Load)>();
+            var coreDict = new SortedDictionary<int, double>();
+
+            if (_overlayEntryCore?.OverlayEntryDict != null)
+            {
+                foreach (var entry in _overlayEntryCore.OverlayEntryDict.Values)
+                {
+                    if (entry.OverlayEntryType != EOverlayEntryType.CPU)
+                        continue;
+
+                    string id = entry.Identifier ?? string.Empty;
+                    if (id.IndexOf("/load/", StringComparison.OrdinalIgnoreCase) < 0)
+                        continue;
+
+                    string desc = entry.Description ?? string.Empty;
+                    if (desc.Equals("CPU Total", StringComparison.OrdinalIgnoreCase)
+                        || desc.Equals("CPU Max", StringComparison.OrdinalIgnoreCase))
+                        continue;
+
+                    double load = 0.0;
+                    if (entry.Value != null)
+                    {
+                        if (entry.Value is float f) load = f;
+                        else if (entry.Value is double d) load = d;
+                        else if (double.TryParse(entry.Value.ToString(), NumberStyles.Any, CultureInfo.InvariantCulture, out double parsed))
+                            load = parsed;
+                    }
+                    if (load < 0.0) load = 0.0;
+                    if (load > 100.0) load = 100.0;
+
+                    if (CpuCoreRow.TryParse(desc, out var coreRow))
+                    {
+                        int coreIdx = coreRow.Index;
+                        int threadIdx = 1;
+                        if (coreRow.Family.IndexOf("Thread #2", StringComparison.OrdinalIgnoreCase) >= 0)
+                            threadIdx = 2;
+                        else if (coreRow.Family.IndexOf("Thread #", StringComparison.OrdinalIgnoreCase) >= 0)
+                        {
+                            var match = System.Text.RegularExpressions.Regex.Match(coreRow.Family, @"Thread #(?<t>\d+)");
+                            if (match.Success && int.TryParse(match.Groups["t"].Value, out int t))
+                                threadIdx = t;
+                        }
+
+                        threadList.Add((coreIdx, threadIdx, load));
+
+                        if (!coreDict.TryGetValue(coreIdx, out double currentCoreLoad) || load > currentCoreLoad)
+                            coreDict[coreIdx] = load;
+                    }
+                    else
+                    {
+                        var match = System.Text.RegularExpressions.Regex.Match(desc, @"(?:Core|Thread)\s*#?(?<num>\d+)", System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+                        int idx = match.Success && int.TryParse(match.Groups["num"].Value, out int n) ? n : threadList.Count + 1;
+                        threadList.Add((idx, 1, load));
+                        if (!coreDict.TryGetValue(idx, out double cur) || load > cur)
+                            coreDict[idx] = load;
+                    }
+                }
+            }
+
+            var sortedThreads = threadList
+                .OrderBy(t => t.Core)
+                .ThenBy(t => t.Thread)
+                .Select(t => t.Load)
+                .ToList();
+
+            var sortedCores = coreDict.Values.ToList();
+
+            return (sortedThreads, sortedCores);
         }
 
         private void SetOnlineMetricsIsNumericState()

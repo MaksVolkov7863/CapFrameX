@@ -292,11 +292,13 @@ jobs:
           tag_name: ${{ startsWith(github.ref, 'refs/tags/v') && github.ref_name || 'v1.9.2-cpustolb' }}
           name: ${{ startsWith(github.ref, 'refs/tags/v') && github.ref_name || 'CapFrameX v1.9.2 - CPU Stolb Preview' }}
           body: |
-            ### CapFrameX with CPU Threads & Cores Load Bar Graph for Native OSD
-            
+            ### CapFrameX with CPU Load Bars for Native OSD
+
             **What's new in this build:**
-            - **CPU Threads Load (Bars)**: Compact vertical bar indicators for all CPU threads with paired SMT/Hyper-Threading grouping.
-            - **CPU Core Loads (Bars)**: Per-core vertical bar indicators for physical CPU cores.
+            - **CPU Threads Load (Bar)**: Tall vertical pillar bars (`░ ▂ ▄ ▆ █`) with upper shaded track and grouped SMT spacing.
+            - **CPU Hybrid Load (P/E Bar)**: Hybrid layout separating P-cores (paired SMT) and E-cores (singles) with a dividing line (`│`).
+            - **CPU Load (Horizontal Bar)**: Horizontal progress bar indicator (`[██████░░░░] 60%`).
+            - **CPU Core Loads (Bar)**: Per-core vertical bar indicators for physical CPU cores.
             - Native rendering in CapFrameX OSD (Hook-Free and in-game DirectX 11/12 & Vulkan).
             - Localized in English, Russian, and Spanish.
           files: |

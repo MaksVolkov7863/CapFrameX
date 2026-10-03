@@ -5,29 +5,49 @@ using System.Text;
 namespace CapFrameX.Overlay
 {
     /// <summary>
-    /// Formats per-thread and per-core CPU loads into compact, informative Unicode bar graphs (столбики)
-    /// for rendering in CapFrameX OSD (Hook-Free DWM and In-Game Hook DirectX 11/12 &amp; Vulkan).
+    /// Formats per-thread and per-core CPU loads into tall, distinct Unicode bar graphs (столбики)
+    /// with background tracks, P/E hybrid core separation, and horizontal progress bars for CapFrameX OSD.
     /// </summary>
     public static class CpuBarFormatter
     {
-        // Unicode Lower One Eighth to Full Block (U+2581 .. U+2588)
-        private static readonly char[] BarGlyphs = new[]
+        // Glyphs with background track for tall vertical bars (as in afterburner/aida64 OSD)
+        // '░' represents the empty/idle track (0-15% load)
+        // '▂', '▄', '▆', '█' represent 25%, 50%, 75%, 100% fill levels
+        private static readonly char[] TrackGlyphs = new[]
         {
-            ' ', // U+2581: Lower 1/8 block (used for 0-6% so an idle/unloaded thread is clearly visible as a baseline tick)
-            ' ', // U+2581: Lower 1/8 block (7-18%)
-            '▂', // U+2582: Lower 1/4 block (19-31%)
-            '▃', // U+2583: Lower 3/8 block (32-44%)
-            '▄', // U+2584: Lower 1/2 block (45-56%)
-            '▅', // U+2585: Lower 5/8 block (57-69%)
-            '▆', // U+2586: Lower 3/4 block (70-81%)
-            '▇', // U+2587: Lower 7/8 block (82-93%)
-            '█'  // U+2588: Full block      (94-100%)
+            '░', // 0 - 15%   (transparent/shaded track: full height pillar showing idle capacity)
+            '▂', // 16 - 35%  (quarter filled)
+            '▄', // 36 - 65%  (half filled)
+            '▆', // 66 - 85%  (three-quarters filled)
+            '█'  // 86 - 100% (solid full block)
+        };
+
+        // Compact baseline glyphs (U+2581..U+2588)
+        private static readonly char[] BaselineGlyphs = new[]
+        {
+            ' ', ' ', '▂', '▃', '▄', '▅', '▆', '▇', '█'
         };
 
         /// <summary>
-        /// Converts a load percentage (0.0 to 100.0) into a corresponding vertical bar glyph.
+        /// Gets a tall vertical bar glyph with background track (░ for idle, ▂, ▄, ▆, █ for load).
         /// </summary>
-        public static char GetBarGlyph(double loadPercent)
+        public static char GetTrackBarGlyph(double loadPercent)
+        {
+            if (double.IsNaN(loadPercent) || loadPercent <= 15.0)
+                return '░';
+            if (loadPercent <= 35.0)
+                return '▂';
+            if (loadPercent <= 65.0)
+                return '▄';
+            if (loadPercent <= 85.0)
+                return '▆';
+            return '█';
+        }
+
+        /// <summary>
+        /// Gets a compact baseline glyph (1/8 to full block).
+        /// </summary>
+        public static char GetBaselineGlyph(double loadPercent)
         {
             if (double.IsNaN(loadPercent) || loadPercent <= 0.0)
                 return ' ';
@@ -37,14 +57,14 @@ namespace CapFrameX.Overlay
             int index = (int)Math.Round((loadPercent / 100.0) * 8.0, MidpointRounding.AwayFromZero);
             if (index < 0) index = 0;
             if (index > 8) index = 8;
-            return BarGlyphs[index];
+            return BaselineGlyphs[index];
         }
 
         /// <summary>
-        /// Formats thread loads into a compact bar string with SMT/HT thread pairs.
-        /// Guaranteed to fit within in-game OSD shared memory limit (63 UTF-8 bytes).
+        /// Formats thread loads into tall vertical bars with background track and clear spacing between threads and cores.
+        /// Guaranteed to never merge together and fits under the 63-byte in-game SHM limit.
         /// </summary>
-        public static string FormatThreadBars(IReadOnlyList<double> threadLoads)
+        public static string FormatTrackBars(IReadOnlyList<double> threadLoads)
         {
             if (threadLoads == null || threadLoads.Count == 0)
                 return string.Empty;
@@ -55,29 +75,22 @@ namespace CapFrameX.Overlay
             if (count <= 16)
             {
                 // Up to 16 threads (e.g. 6C/12T, 8C/16T):
-                // Pair threads by core with a space between cores: "▅█ ▃▂ ▇▄ █ "
+                // Space between threads, and distinct double-space between physical cores
                 for (int i = 0; i < count; i++)
                 {
-                    sb.Append(GetBarGlyph(threadLoads[i]));
-                    if (i % 2 == 1 && i < count - 1)
+                    sb.Append(GetTrackBarGlyph(threadLoads[i]));
+                    if (i < count - 1)
                     {
-                        sb.Append(' ');
+                        // Every 2 threads (a core), add double space; between threads of the same core, add single space
+                        sb.Append(i % 2 == 1 ? "  " : " ");
                     }
-                }
-            }
-            else if (count <= 20)
-            {
-                // 18-20 threads: omit spaces between pairs to strictly stay under the 63-byte UTF-8 limit
-                for (int i = 0; i < count; i++)
-                {
-                    sb.Append(GetBarGlyph(threadLoads[i]));
                 }
             }
             else
             {
-                // > 20 threads (e.g. 24 or 32 threads on high-end desktop/workstation):
-                // Aggregate each physical core pair (max load of the 2 threads) so all cores fit cleanly
-                int coreCount = (count + 1) / 2;
+                // > 16 threads (e.g. 24 or 32 threads):
+                // Show physical core loads with space between cores so they remain distinct
+                int coreCount = Math.Min((count + 1) / 2, 16);
                 for (int c = 0; c < coreCount; c++)
                 {
                     int t1 = c * 2;
@@ -88,9 +101,47 @@ namespace CapFrameX.Overlay
                         load = threadLoads[t2];
                     }
 
-                    sb.Append(GetBarGlyph(load));
-                    // Add a separator space every 4 cores for readability
-                    if (c % 4 == 3 && c < coreCount - 1)
+                    sb.Append(GetTrackBarGlyph(load));
+                    if (c < coreCount - 1)
+                    {
+                        sb.Append(c % 4 == 3 ? "  " : " ");
+                    }
+                }
+            }
+
+            return sb.ToString();
+        }
+
+        /// <summary>
+        /// Formats hybrid CPU architecture (e.g. Intel 12th/13th/14th Gen or AMD Ryzen AI):
+        /// P-cores (paired with SMT) | Divider | E-cores (single threads).
+        /// </summary>
+        public static string FormatHybridBars(IReadOnlyList<double> threadLoads, int pCoreThreads = 16, int eCoreThreads = 8)
+        {
+            if (threadLoads == null || threadLoads.Count == 0)
+                return string.Empty;
+
+            var sb = new StringBuilder();
+            int total = threadLoads.Count;
+
+            int pCount = Math.Min(total, pCoreThreads);
+            for (int i = 0; i < pCount; i++)
+            {
+                sb.Append(GetTrackBarGlyph(threadLoads[i]));
+                if (i % 2 == 1 && i < pCount - 1)
+                {
+                    sb.Append(' ');
+                }
+            }
+
+            if (total > pCount)
+            {
+                sb.Append(" │ ");
+                int eCount = Math.Min(total - pCount, eCoreThreads);
+                for (int i = 0; i < eCount; i++)
+                {
+                    sb.Append(GetTrackBarGlyph(threadLoads[pCount + i]));
+                    if (i < eCount - 1)
                     {
                         sb.Append(' ');
                     }
@@ -101,7 +152,34 @@ namespace CapFrameX.Overlay
         }
 
         /// <summary>
-        /// Formats physical core loads into a compact bar string (one bar per physical core).
+        /// Formats a horizontal progress bar (like Screenshot 1).
+        /// Example: "[██████░░░░] 60%"
+        /// </summary>
+        public static string FormatHorizontalBar(double percent, int barWidth = 10)
+        {
+            if (double.IsNaN(percent) || percent < 0.0) percent = 0.0;
+            if (percent > 100.0) percent = 100.0;
+
+            int filled = (int)Math.Round((percent / 100.0) * barWidth, MidpointRounding.AwayFromZero);
+            if (filled < 0) filled = 0;
+            if (filled > barWidth) filled = barWidth;
+
+            var sb = new StringBuilder(barWidth + 10);
+            sb.Append('[');
+            for (int i = 0; i < filled; i++)
+            {
+                sb.Append('█');
+            }
+            for (int i = filled; i < barWidth; i++)
+            {
+                sb.Append('░');
+            }
+            sb.Append($"] {(int)Math.Round(percent)}%");
+            return sb.ToString();
+        }
+
+        /// <summary>
+        /// Formats physical core loads into distinct vertical bars with clear separators.
         /// </summary>
         public static string FormatCoreBars(IReadOnlyList<double> coreLoads)
         {
@@ -109,14 +187,13 @@ namespace CapFrameX.Overlay
                 return string.Empty;
 
             var sb = new StringBuilder();
-            int count = Math.Min(coreLoads.Count, 20); // Cap at 20 cores to fit SHM limit
+            int count = Math.Min(coreLoads.Count, 16);
             for (int i = 0; i < count; i++)
             {
-                sb.Append(GetBarGlyph(coreLoads[i]));
-                // Space every 4 cores for readability
-                if (i % 4 == 3 && i < count - 1)
+                sb.Append(GetTrackBarGlyph(coreLoads[i]));
+                if (i < count - 1)
                 {
-                    sb.Append(' ');
+                    sb.Append(i % 4 == 3 ? "  " : " ");
                 }
             }
             return sb.ToString();

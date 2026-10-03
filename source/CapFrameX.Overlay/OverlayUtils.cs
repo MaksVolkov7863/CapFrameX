@@ -44,7 +44,8 @@ namespace CapFrameX.Overlay
                         return entry.ShowOnOverlay ? 30 : 10;
                     if (entry.Identifier == "CustomRAM")
                         return entry.ShowOnOverlay ? 50 : 10;
-                    if (entry.Identifier == "CpuThreadsLoadBar" || entry.Identifier == "CpuCoreLoadsBar")
+                    if (entry.Identifier == "CpuThreadsLoadBar" || entry.Identifier == "CpuHybridLoadBar"
+                        || entry.Identifier == "CpuHorizontalBar" || entry.Identifier == "CpuCoreLoadsBar")
                         return 41;
                     return 10;
 
@@ -293,13 +294,45 @@ namespace CapFrameX.Overlay
                         IsEntryEnabled = true
                     },
 
-                    // CPU Threads Load (Bars)
+                    // CPU Threads Bar (With Track)
                     new OverlayEntryWrapper("CpuThreadsLoadBar")
                     {
                         OverlayEntryType = EOverlayEntryType.CX,
                         ShowOnOverlay = false,
                         ShowOnOverlayIsEnabled = true,
-                        Description = "CPU Threads Load (Bars)",
+                        Description = "CPU Threads Bar (With Track)",
+                        GroupName = "CPU",
+                        Value = string.Empty,
+                        ValueFormat = default,
+                        ShowGraph = false,
+                        ShowGraphIsEnabled = false,
+                        Color = string.Empty,
+                        IsEntryEnabled = true
+                    },
+
+                    // CPU Hybrid Threads Bar (P/E)
+                    new OverlayEntryWrapper("CpuHybridLoadBar")
+                    {
+                        OverlayEntryType = EOverlayEntryType.CX,
+                        ShowOnOverlay = false,
+                        ShowOnOverlayIsEnabled = true,
+                        Description = "CPU Hybrid Threads Bar (P/E)",
+                        GroupName = "CPU",
+                        Value = string.Empty,
+                        ValueFormat = default,
+                        ShowGraph = false,
+                        ShowGraphIsEnabled = false,
+                        Color = string.Empty,
+                        IsEntryEnabled = true
+                    },
+
+                    // CPU Load Bar (Horizontal)
+                    new OverlayEntryWrapper("CpuHorizontalBar")
+                    {
+                        OverlayEntryType = EOverlayEntryType.CX,
+                        ShowOnOverlay = false,
+                        ShowOnOverlayIsEnabled = true,
+                        Description = "CPU Load Bar (Horizontal)",
                         GroupName = "CPU",
                         Value = string.Empty,
                         ValueFormat = default,

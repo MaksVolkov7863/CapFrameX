@@ -1689,21 +1689,37 @@ namespace CapFrameX.Overlay
         private void UpdateCpuLoadBars()
         {
             _identifierOverlayEntryDict.TryGetValue("CpuThreadsLoadBar", out IOverlayEntry threadsEntry);
+            _identifierOverlayEntryDict.TryGetValue("CpuHybridLoadBar", out IOverlayEntry hybridEntry);
+            _identifierOverlayEntryDict.TryGetValue("CpuHorizontalBar", out IOverlayEntry horizontalEntry);
             _identifierOverlayEntryDict.TryGetValue("CpuCoreLoadsBar", out IOverlayEntry coresEntry);
 
             bool needThreads = threadsEntry != null && threadsEntry.ShowOnOverlay;
+            bool needHybrid = hybridEntry != null && hybridEntry.ShowOnOverlay;
+            bool needHorizontal = horizontalEntry != null && horizontalEntry.ShowOnOverlay;
             bool needCores = coresEntry != null && coresEntry.ShowOnOverlay;
 
-            if (!needThreads && !needCores)
+            if (!needThreads && !needHybrid && !needHorizontal && !needCores)
                 return;
 
-            var (threadLoads, coreLoads) = CollectCpuLoads();
+            var (threadLoads, coreLoads, cpuTotal) = CollectCpuLoads();
 
             if (needThreads)
             {
                 threadsEntry.Value = threadLoads.Count > 0
-                    ? CpuBarFormatter.FormatThreadBars(threadLoads)
+                    ? CpuBarFormatter.FormatTrackBars(threadLoads)
                     : string.Empty;
+            }
+
+            if (needHybrid)
+            {
+                hybridEntry.Value = threadLoads.Count > 0
+                    ? CpuBarFormatter.FormatHybridBars(threadLoads)
+                    : string.Empty;
+            }
+
+            if (needHorizontal)
+            {
+                horizontalEntry.Value = CpuBarFormatter.FormatHorizontalBar(cpuTotal);
             }
 
             if (needCores)
@@ -1714,10 +1730,12 @@ namespace CapFrameX.Overlay
             }
         }
 
-        private (List<double> Threads, List<double> Cores) CollectCpuLoads()
+        private (List<double> Threads, List<double> Cores, double CpuTotal) CollectCpuLoads()
         {
             var threadList = new List<(int Core, int Thread, double Load)>();
             var coreDict = new SortedDictionary<int, double>();
+            double cpuTotal = 0.0;
+            bool hasCpuTotal = false;
 
             if (_overlayEntryCore?.OverlayEntryDict != null)
             {
@@ -1731,10 +1749,6 @@ namespace CapFrameX.Overlay
                         continue;
 
                     string desc = entry.Description ?? string.Empty;
-                    if (desc.Equals("CPU Total", StringComparison.OrdinalIgnoreCase)
-                        || desc.Equals("CPU Max", StringComparison.OrdinalIgnoreCase))
-                        continue;
-
                     double load = 0.0;
                     if (entry.Value != null)
                     {
@@ -1745,6 +1759,16 @@ namespace CapFrameX.Overlay
                     }
                     if (load < 0.0) load = 0.0;
                     if (load > 100.0) load = 100.0;
+
+                    if (desc.Equals("CPU Total", StringComparison.OrdinalIgnoreCase))
+                    {
+                        cpuTotal = load;
+                        hasCpuTotal = true;
+                        continue;
+                    }
+
+                    if (desc.Equals("CPU Max", StringComparison.OrdinalIgnoreCase))
+                        continue;
 
                     if (CpuCoreRow.TryParse(desc, out var coreRow))
                     {
@@ -1783,7 +1807,12 @@ namespace CapFrameX.Overlay
 
             var sortedCores = coreDict.Values.ToList();
 
-            return (sortedThreads, sortedCores);
+            if (!hasCpuTotal && sortedThreads.Count > 0)
+            {
+                cpuTotal = sortedThreads.Average();
+            }
+
+            return (sortedThreads, sortedCores, cpuTotal);
         }
 
         private void SetOnlineMetricsIsNumericState()

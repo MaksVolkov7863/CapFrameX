@@ -125,33 +125,35 @@ namespace CapFrameX.Overlay
         /// <summary>
         /// Formats hybrid CPU architecture (e.g. Intel 12th/13th/14th Gen or AMD Ryzen AI):
         /// P-cores | Divider | E-cores.
+        /// If there are no E-cores, only P-cores are formatted without divider.
         /// </summary>
-        public static string FormatHybridBars(IReadOnlyList<double> threadLoads, int pCoreThreads = 16, int eCoreThreads = 8)
+        public static string FormatHybridBars(IReadOnlyList<double> pThreadLoads, IReadOnlyList<double> eThreadLoads)
         {
-            if (threadLoads == null || threadLoads.Count == 0)
+            if ((pThreadLoads == null || pThreadLoads.Count == 0) && (eThreadLoads == null || eThreadLoads.Count == 0))
                 return string.Empty;
 
             var sb = new StringBuilder();
-            int total = threadLoads.Count;
 
-            // Keep within 63 UTF-8 bytes limit
-            int pCount = Math.Min(Math.Min(total, pCoreThreads), 12);
-            for (int i = 0; i < pCount; i++)
+            if (pThreadLoads != null && pThreadLoads.Count > 0)
             {
-                sb.Append(GetTrackBarGlyph(threadLoads[i]));
-                if (i % 2 == 1 && i < pCount - 1)
+                int pCount = Math.Min(pThreadLoads.Count, 16);
+                for (int i = 0; i < pCount; i++)
                 {
-                    sb.Append(' ');
+                    sb.Append(GetTrackBarGlyph(pThreadLoads[i]));
+                    if (i < pCount - 1)
+                    {
+                        sb.Append(' ');
+                    }
                 }
             }
 
-            if (total > pCount)
+            if (eThreadLoads != null && eThreadLoads.Count > 0)
             {
                 sb.Append(" │ ");
-                int eCount = Math.Min(total - pCount, eCoreThreads);
+                int eCount = Math.Min(eThreadLoads.Count, 16);
                 for (int i = 0; i < eCount; i++)
                 {
-                    sb.Append(GetTrackBarGlyph(threadLoads[pCount + i]));
+                    sb.Append(GetTrackBarGlyph(eThreadLoads[i]));
                     if (i < eCount - 1)
                     {
                         sb.Append(' ');
@@ -163,8 +165,32 @@ namespace CapFrameX.Overlay
         }
 
         /// <summary>
-        /// Formats a horizontal progress bar.
-        /// Example: "[█████-----] 50%"
+        /// Formats hybrid CPU architecture from a single list by thread offset.
+        /// </summary>
+        public static string FormatHybridBars(IReadOnlyList<double> threadLoads, int pCoreThreads = 16, int eCoreThreads = 8)
+        {
+            if (threadLoads == null || threadLoads.Count == 0)
+                return string.Empty;
+
+            int pCount = Math.Min(threadLoads.Count, pCoreThreads);
+            var pList = new List<double>();
+            for (int i = 0; i < pCount; i++) pList.Add(threadLoads[i]);
+
+            var eList = new List<double>();
+            if (threadLoads.Count > pCount && eCoreThreads > 0)
+            {
+                int eCount = Math.Min(threadLoads.Count - pCount, eCoreThreads);
+                for (int i = 0; i < eCount; i++) eList.Add(threadLoads[pCount + i]);
+            }
+
+            return FormatHybridBars(pList, eList);
+        }
+
+        /// <summary>
+        /// Formats a horizontal progress bar with fixed visual width.
+        /// Uses '█' for filled and '░' for unfilled (both have identical glyph width in OSD fonts),
+        /// and pads the percentage to 3 digits so boundaries never jump.
+        /// Example: "[█████░░░░░]  50%"
         /// </summary>
         public static string FormatHorizontalBar(double percent, int barWidth = 10)
         {
@@ -183,9 +209,10 @@ namespace CapFrameX.Overlay
             }
             for (int i = filled; i < barWidth; i++)
             {
-                sb.Append('-');
+                sb.Append('░');
             }
-            sb.Append($"] {(int)Math.Round(percent)}%");
+            int rounded = (int)Math.Round(percent);
+            sb.Append($"] {rounded,3}%");
             return TruncateToUtf8Limit(sb.ToString(), 63);
         }
 

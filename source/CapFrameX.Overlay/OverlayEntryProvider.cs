@@ -1757,7 +1757,7 @@ namespace CapFrameX.Overlay
 
             UpdateCpuBarSensorsActivation();
 
-            var (threadLoads, coreLoads, cpuTotal) = CollectCpuLoads();
+            var (threadLoads, coreLoads, pThreadLoads, eThreadLoads, cpuTotal) = CollectCpuLoads();
 
             if (needThreads)
             {
@@ -1768,9 +1768,11 @@ namespace CapFrameX.Overlay
 
             if (needHybrid)
             {
-                hybridEntry.Value = threadLoads.Count > 0
-                    ? CpuBarFormatter.FormatHybridBars(threadLoads)
-                    : string.Empty;
+                // Only show P/E separation if the machine actually has E-cores!
+                // If the CPU has no E-cores, format standard threads without fake divider/fake E-cores.
+                hybridEntry.Value = eThreadLoads.Count > 0
+                    ? CpuBarFormatter.FormatHybridBars(pThreadLoads, eThreadLoads)
+                    : (threadLoads.Count > 0 ? CpuBarFormatter.FormatTrackBars(threadLoads) : string.Empty);
             }
 
             if (needHorizontal)
@@ -1786,9 +1788,11 @@ namespace CapFrameX.Overlay
             }
         }
 
-        private (List<double> Threads, List<double> Cores, double CpuTotal) CollectCpuLoads()
+        private (List<double> Threads, List<double> Cores, List<double> PThreads, List<double> EThreads, double CpuTotal) CollectCpuLoads()
         {
             var threadList = new List<(int Core, int Thread, double Load)>();
+            var pThreadList = new List<(int Core, int Thread, double Load)>();
+            var eThreadList = new List<(int Core, int Thread, double Load)>();
             var coreDict = new SortedDictionary<int, double>();
             double cpuTotal = 0.0;
             bool hasCpuTotal = false;
@@ -1826,39 +1830,71 @@ namespace CapFrameX.Overlay
                     if (desc.IndexOf("CPU Max", StringComparison.OrdinalIgnoreCase) >= 0)
                         continue;
 
+                    string cleanDesc = desc.StartsWith("CPU ", StringComparison.OrdinalIgnoreCase)
+                        ? desc.Substring(4).Trim() : desc;
+
+                    bool isEcore = false;
+
+                    if (CpuCoreRow.TryParse(cleanDesc, out var coreRow))
+                    {
+                        if (coreRow.Type == "E" || coreRow.Type == "D" || coreRow.Type == "LPE" || coreRow.Type == "LP")
+                            isEcore = true;
+                    }
+                    else
+                    {
+                        if (Regex.IsMatch(desc, @"\b(?:E|D|LPE|LP)\b", RegexOptions.IgnoreCase))
+                            isEcore = true;
+                    }
+
                     var coreMatch = Regex.Match(desc, @"Core\s*#?(?<c>\d+)", RegexOptions.IgnoreCase);
                     var threadMatch = Regex.Match(desc, @"Thread\s*#?(?<t>\d+)", RegexOptions.IgnoreCase);
 
+                    int coreIdx;
+                    int threadIdx;
+
                     if (coreMatch.Success)
                     {
-                        int coreIdx = int.Parse(coreMatch.Groups["c"].Value, CultureInfo.InvariantCulture);
-                        int threadIdx = threadMatch.Success ? int.Parse(threadMatch.Groups["t"].Value, CultureInfo.InvariantCulture) : 1;
-                        threadList.Add((coreIdx, threadIdx, load));
-
-                        if (!coreDict.TryGetValue(coreIdx, out double currentCoreLoad) || load > currentCoreLoad)
-                            coreDict[coreIdx] = load;
+                        coreIdx = int.Parse(coreMatch.Groups["c"].Value, CultureInfo.InvariantCulture);
+                        threadIdx = threadMatch.Success ? int.Parse(threadMatch.Groups["t"].Value, CultureInfo.InvariantCulture) : 1;
                     }
                     else if (threadMatch.Success)
                     {
-                        int threadIdx = int.Parse(threadMatch.Groups["t"].Value, CultureInfo.InvariantCulture);
-                        threadList.Add((threadIdx, 1, load));
-
-                        if (!coreDict.TryGetValue(threadIdx, out double currentCoreLoad) || load > currentCoreLoad)
-                            coreDict[threadIdx] = load;
+                        coreIdx = int.Parse(threadMatch.Groups["t"].Value, CultureInfo.InvariantCulture);
+                        threadIdx = 1;
                     }
                     else
                     {
                         var match = Regex.Match(desc, @"#?(?<num>\d+)");
-                        int idx = match.Success && int.TryParse(match.Groups["num"].Value, out int n) ? n : threadList.Count + 1;
-                        threadList.Add((idx, 1, load));
-
-                        if (!coreDict.TryGetValue(idx, out double cur) || load > cur)
-                            coreDict[idx] = load;
+                        coreIdx = match.Success && int.TryParse(match.Groups["num"].Value, out int n) ? n : threadList.Count + 1;
+                        threadIdx = 1;
                     }
+
+                    var item = (coreIdx, threadIdx, load);
+                    threadList.Add(item);
+
+                    if (isEcore)
+                        eThreadList.Add(item);
+                    else
+                        pThreadList.Add(item);
+
+                    if (!coreDict.TryGetValue(coreIdx, out double currentCoreLoad) || load > currentCoreLoad)
+                        coreDict[coreIdx] = load;
                 }
             }
 
             var sortedThreads = threadList
+                .OrderBy(t => t.Core)
+                .ThenBy(t => t.Thread)
+                .Select(t => t.Load)
+                .ToList();
+
+            var sortedPThreads = pThreadList
+                .OrderBy(t => t.Core)
+                .ThenBy(t => t.Thread)
+                .Select(t => t.Load)
+                .ToList();
+
+            var sortedEThreads = eThreadList
                 .OrderBy(t => t.Core)
                 .ThenBy(t => t.Thread)
                 .Select(t => t.Load)
@@ -1871,7 +1907,7 @@ namespace CapFrameX.Overlay
                 cpuTotal = sortedThreads.Average();
             }
 
-            return (sortedThreads, sortedCores, cpuTotal);
+            return (sortedThreads, sortedCores, sortedPThreads, sortedEThreads, cpuTotal);
         }
 
         private void SetOnlineMetricsIsNumericState()

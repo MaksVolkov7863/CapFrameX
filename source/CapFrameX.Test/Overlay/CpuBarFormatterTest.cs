@@ -65,16 +65,30 @@ namespace CapFrameX.Test.Overlay
         }
 
         [TestMethod]
-        public void FormatHorizontalBar_RendersCorrectly()
+        public void FormatHybridBars_NoECores_NoDivider()
+        {
+            var pLoads = new[] { 10.0, 50.0, 100.0 };
+            string result = CpuBarFormatter.FormatHybridBars(pLoads, new List<double>());
+
+            Assert.IsFalse(result.Contains("│"), "Should not contain divider when there are no E-cores");
+            StringAssert.Contains(result, "█");
+        }
+
+        [TestMethod]
+        public void FormatHorizontalBar_RendersCorrectlyWithFixedWidth()
         {
             string bar0 = CpuBarFormatter.FormatHorizontalBar(0.0, 10);
-            Assert.AreEqual("[----------] 0%", bar0);
+            Assert.AreEqual("[░░░░░░░░░░]   0%", bar0);
 
             string bar50 = CpuBarFormatter.FormatHorizontalBar(50.0, 10);
-            Assert.AreEqual("[█████-----] 50%", bar50);
+            Assert.AreEqual("[█████░░░░░]  50%", bar50);
 
             string bar100 = CpuBarFormatter.FormatHorizontalBar(100.0, 10);
             Assert.AreEqual("[██████████] 100%", bar100);
+
+            // Verify visual character length is identical across 0%, 50%, 100%
+            Assert.AreEqual(bar0.Length, bar50.Length);
+            Assert.AreEqual(bar50.Length, bar100.Length);
         }
 
         [TestMethod]

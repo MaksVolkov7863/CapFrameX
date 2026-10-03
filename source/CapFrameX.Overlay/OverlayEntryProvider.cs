@@ -24,6 +24,7 @@ using System.Reactive.Linq;
 using System.Reactive.Subjects;
 using System.Runtime.InteropServices;
 using System.Text;
+using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 
 namespace CapFrameX.Overlay
@@ -97,6 +98,14 @@ namespace CapFrameX.Overlay
         private const string DISPLAY_TIME_IDENTIFIER = "DisplayTime";
         private const string PRESENT_RESOLUTION_IDENTIFIER = "Resolution";
         private const string DISPLAY_RESOLUTION_IDENTIFIER_PREFIX = "DisplayResolution:";
+
+        private static readonly HashSet<string> CPU_LOAD_BAR_IDENTIFIERS = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+        {
+            "CpuThreadsLoadBar",
+            "CpuHybridLoadBar",
+            "CpuHorizontalBar",
+            "CpuCoreLoadsBar"
+        };
 
         private readonly ISensorService _sensorService;
         private readonly IAppConfiguration _appConfiguration;
@@ -499,6 +508,8 @@ namespace CapFrameX.Overlay
                 }
             }
 
+            UpdateCpuBarSensorsActivation();
+
             CheckCustomSystemInfo();
             CheckOSVersion();
             CheckGpuDriver();
@@ -538,6 +549,40 @@ namespace CapFrameX.Overlay
         {
             if (identifier == null) return;
             _sensorConfig.SelectForOverlay(identifier, isShownOnOverlay);
+
+            if (CPU_LOAD_BAR_IDENTIFIERS.Contains(identifier))
+            {
+                UpdateCpuBarSensorsActivation();
+            }
+        }
+
+        private void UpdateCpuBarSensorsActivation()
+        {
+            bool anyBarActive = false;
+            if (_overlayEntries != null)
+            {
+                foreach (var entry in _overlayEntries)
+                {
+                    if (entry.ShowOnOverlay && CPU_LOAD_BAR_IDENTIFIERS.Contains(entry.Identifier))
+                    {
+                        anyBarActive = true;
+                        break;
+                    }
+                }
+            }
+
+            if (_overlayEntryCore?.OverlayEntryDict != null)
+            {
+                foreach (var entry in _overlayEntryCore.OverlayEntryDict.Values)
+                {
+                    if (entry.OverlayEntryType == EOverlayEntryType.CPU &&
+                        (entry.Identifier ?? string.Empty).IndexOf("/load/", StringComparison.OrdinalIgnoreCase) >= 0)
+                    {
+                        bool userSelected = _identifierOverlayEntryDict.TryGetValue(entry.Identifier, out var userEntry) && userEntry.ShowOnOverlay;
+                        _sensorConfig.SelectForOverlay(entry.Identifier, anyBarActive || userSelected);
+                    }
+                }
+            }
         }
 
         private void ManageFormats()
@@ -838,6 +883,13 @@ namespace CapFrameX.Overlay
                         hasChanges = true;
                     }
                 }
+
+                if (existingConfigEntry != null && CPU_LOAD_BAR_IDENTIFIERS.Contains(defaultEntry.Identifier)
+                    && string.Equals(existingConfigEntry.GroupName, "CPU", StringComparison.OrdinalIgnoreCase))
+                {
+                    existingConfigEntry.GroupName = defaultEntry.GroupName;
+                    hasChanges = true;
+                }
             }
 
             HasHardwareChanged = hasChanges;
@@ -1024,6 +1076,8 @@ namespace CapFrameX.Overlay
                 _identifierOverlayEntryDict[entry.Identifier] = entry;
                 entry.FormatChanged = true;
             }
+
+            UpdateCpuBarSensorsActivation();
         }
 
         internal static bool ReconcileDisplayResolutionEntries(List<IOverlayEntry> entries,
@@ -1701,6 +1755,8 @@ namespace CapFrameX.Overlay
             if (!needThreads && !needHybrid && !needHorizontal && !needCores)
                 return;
 
+            UpdateCpuBarSensorsActivation();
+
             var (threadLoads, coreLoads, cpuTotal) = CollectCpuLoads();
 
             if (needThreads)
@@ -1760,39 +1816,42 @@ namespace CapFrameX.Overlay
                     if (load < 0.0) load = 0.0;
                     if (load > 100.0) load = 100.0;
 
-                    if (desc.Equals("CPU Total", StringComparison.OrdinalIgnoreCase))
+                    if (desc.IndexOf("CPU Total", StringComparison.OrdinalIgnoreCase) >= 0)
                     {
                         cpuTotal = load;
                         hasCpuTotal = true;
                         continue;
                     }
 
-                    if (desc.Equals("CPU Max", StringComparison.OrdinalIgnoreCase))
+                    if (desc.IndexOf("CPU Max", StringComparison.OrdinalIgnoreCase) >= 0)
                         continue;
 
-                    if (CpuCoreRow.TryParse(desc, out var coreRow))
-                    {
-                        int coreIdx = coreRow.Index;
-                        int threadIdx = 1;
-                        if (coreRow.Family.IndexOf("Thread #2", StringComparison.OrdinalIgnoreCase) >= 0)
-                            threadIdx = 2;
-                        else if (coreRow.Family.IndexOf("Thread #", StringComparison.OrdinalIgnoreCase) >= 0)
-                        {
-                            var match = System.Text.RegularExpressions.Regex.Match(coreRow.Family, @"Thread #(?<t>\d+)");
-                            if (match.Success && int.TryParse(match.Groups["t"].Value, out int t))
-                                threadIdx = t;
-                        }
+                    var coreMatch = Regex.Match(desc, @"Core\s*#?(?<c>\d+)", RegexOptions.IgnoreCase);
+                    var threadMatch = Regex.Match(desc, @"Thread\s*#?(?<t>\d+)", RegexOptions.IgnoreCase);
 
+                    if (coreMatch.Success)
+                    {
+                        int coreIdx = int.Parse(coreMatch.Groups["c"].Value, CultureInfo.InvariantCulture);
+                        int threadIdx = threadMatch.Success ? int.Parse(threadMatch.Groups["t"].Value, CultureInfo.InvariantCulture) : 1;
                         threadList.Add((coreIdx, threadIdx, load));
 
                         if (!coreDict.TryGetValue(coreIdx, out double currentCoreLoad) || load > currentCoreLoad)
                             coreDict[coreIdx] = load;
                     }
+                    else if (threadMatch.Success)
+                    {
+                        int threadIdx = int.Parse(threadMatch.Groups["t"].Value, CultureInfo.InvariantCulture);
+                        threadList.Add((threadIdx, 1, load));
+
+                        if (!coreDict.TryGetValue(threadIdx, out double currentCoreLoad) || load > currentCoreLoad)
+                            coreDict[threadIdx] = load;
+                    }
                     else
                     {
-                        var match = System.Text.RegularExpressions.Regex.Match(desc, @"(?:Core|Thread)\s*#?(?<num>\d+)", System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+                        var match = Regex.Match(desc, @"#?(?<num>\d+)");
                         int idx = match.Success && int.TryParse(match.Groups["num"].Value, out int n) ? n : threadList.Count + 1;
                         threadList.Add((idx, 1, load));
+
                         if (!coreDict.TryGetValue(idx, out double cur) || load > cur)
                             coreDict[idx] = load;
                     }

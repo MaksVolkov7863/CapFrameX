@@ -11,13 +11,16 @@ namespace CapFrameX.Test.Overlay
         [TestMethod]
         public void GetTrackBarGlyph_BoundsAndLevels()
         {
-            Assert.AreEqual('░', CpuBarFormatter.GetTrackBarGlyph(0.0));
-            Assert.AreEqual('░', CpuBarFormatter.GetTrackBarGlyph(-5.0));
-            Assert.AreEqual('░', CpuBarFormatter.GetTrackBarGlyph(double.NaN));
-            Assert.AreEqual('░', CpuBarFormatter.GetTrackBarGlyph(15.0));
-            Assert.AreEqual('▂', CpuBarFormatter.GetTrackBarGlyph(25.0));
-            Assert.AreEqual('▄', CpuBarFormatter.GetTrackBarGlyph(50.0));
-            Assert.AreEqual('▆', CpuBarFormatter.GetTrackBarGlyph(75.0));
+            Assert.AreEqual(' ', CpuBarFormatter.GetTrackBarGlyph(0.0));
+            Assert.AreEqual(' ', CpuBarFormatter.GetTrackBarGlyph(-5.0));
+            Assert.AreEqual(' ', CpuBarFormatter.GetTrackBarGlyph(double.NaN));
+            Assert.AreEqual(' ', CpuBarFormatter.GetTrackBarGlyph(5.0));
+            Assert.AreEqual('▂', CpuBarFormatter.GetTrackBarGlyph(15.0));
+            Assert.AreEqual('▃', CpuBarFormatter.GetTrackBarGlyph(25.0));
+            Assert.AreEqual('▄', CpuBarFormatter.GetTrackBarGlyph(40.0));
+            Assert.AreEqual('▅', CpuBarFormatter.GetTrackBarGlyph(55.0));
+            Assert.AreEqual('▆', CpuBarFormatter.GetTrackBarGlyph(70.0));
+            Assert.AreEqual('▇', CpuBarFormatter.GetTrackBarGlyph(85.0));
             Assert.AreEqual('█', CpuBarFormatter.GetTrackBarGlyph(95.0));
             Assert.AreEqual('█', CpuBarFormatter.GetTrackBarGlyph(100.0));
         }
@@ -28,8 +31,8 @@ namespace CapFrameX.Test.Overlay
             var loads = new[] { 10.0, 95.0, 50.0, 0.0, 75.0, 25.0, 100.0, 100.0 };
             string result = CpuBarFormatter.FormatTrackBars(loads);
 
-            // "░ █  ▄ ░  ▆ ▂  █ █"
-            Assert.AreEqual("░ █  ▄ ░  ▆ ▂  █ █", result);
+            // "▂ █ ▅   ▇ ▃ █ █"
+            Assert.AreEqual("▂ █ ▅   ▇ ▃ █ █", result);
 
             int byteCount = Encoding.UTF8.GetByteCount(result);
             Assert.IsTrue(byteCount < 63, $"Byte count {byteCount} must fit in 63 bytes");
@@ -44,7 +47,7 @@ namespace CapFrameX.Test.Overlay
             string result = CpuBarFormatter.FormatTrackBars(loads);
             int byteCount = Encoding.UTF8.GetByteCount(result);
 
-            // 16 glyphs (16*3 = 48 bytes) + 8 single spaces + 7 double spaces = 63 bytes
+            // 16 glyphs (16*3 = 48 bytes) + 15 spaces = 63 bytes
             Assert.AreEqual(63, byteCount);
             Assert.IsTrue(byteCount <= 63, $"Byte count {byteCount} must fit in 63 bytes");
         }
@@ -65,10 +68,10 @@ namespace CapFrameX.Test.Overlay
         public void FormatHorizontalBar_RendersCorrectly()
         {
             string bar0 = CpuBarFormatter.FormatHorizontalBar(0.0, 10);
-            Assert.AreEqual("[░░░░░░░░░░] 0%", bar0);
+            Assert.AreEqual("[----------] 0%", bar0);
 
             string bar50 = CpuBarFormatter.FormatHorizontalBar(50.0, 10);
-            Assert.AreEqual("[█████░░░░░] 50%", bar50);
+            Assert.AreEqual("[█████-----] 50%", bar50);
 
             string bar100 = CpuBarFormatter.FormatHorizontalBar(100.0, 10);
             Assert.AreEqual("[██████████] 100%", bar100);
@@ -80,8 +83,8 @@ namespace CapFrameX.Test.Overlay
             var loads = new[] { 10.0, 25.0, 50.0, 75.0, 90.0, 95.0, 0.0, 50.0 };
             string result = CpuBarFormatter.FormatCoreBars(loads);
 
-            // "░ ▂ ▄ ▆  █ █ ░ ▄"
-            Assert.AreEqual("░ ▂ ▄ ▆  █ █ ░ ▄", result);
+            // "▂ ▃ ▅ ▇ █ █   ▅"
+            Assert.AreEqual("▂ ▃ ▅ ▇ █ █   ▅", result);
 
             int byteCount = Encoding.UTF8.GetByteCount(result);
             Assert.IsTrue(byteCount < 63, $"Byte count {byteCount} must fit in 63 bytes");

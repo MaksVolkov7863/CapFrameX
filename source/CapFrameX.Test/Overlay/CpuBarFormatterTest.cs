@@ -14,13 +14,14 @@ namespace CapFrameX.Test.Overlay
             Assert.AreEqual(' ', CpuBarFormatter.GetTrackBarGlyph(0.0));
             Assert.AreEqual(' ', CpuBarFormatter.GetTrackBarGlyph(-5.0));
             Assert.AreEqual(' ', CpuBarFormatter.GetTrackBarGlyph(double.NaN));
-            Assert.AreEqual(' ', CpuBarFormatter.GetTrackBarGlyph(5.0));
-            Assert.AreEqual('▂', CpuBarFormatter.GetTrackBarGlyph(15.0));
-            Assert.AreEqual('▃', CpuBarFormatter.GetTrackBarGlyph(25.0));
-            Assert.AreEqual('▄', CpuBarFormatter.GetTrackBarGlyph(40.0));
-            Assert.AreEqual('▅', CpuBarFormatter.GetTrackBarGlyph(55.0));
-            Assert.AreEqual('▆', CpuBarFormatter.GetTrackBarGlyph(70.0));
-            Assert.AreEqual('▇', CpuBarFormatter.GetTrackBarGlyph(85.0));
+            Assert.AreEqual('▂', CpuBarFormatter.GetTrackBarGlyph(5.0));
+            Assert.AreEqual('▂', CpuBarFormatter.GetTrackBarGlyph(12.0));
+            Assert.AreEqual('▃', CpuBarFormatter.GetTrackBarGlyph(20.0));
+            Assert.AreEqual('▄', CpuBarFormatter.GetTrackBarGlyph(35.0));
+            Assert.AreEqual('▅', CpuBarFormatter.GetTrackBarGlyph(50.0));
+            Assert.AreEqual('▆', CpuBarFormatter.GetTrackBarGlyph(60.0));
+            Assert.AreEqual('▇', CpuBarFormatter.GetTrackBarGlyph(75.0));
+            Assert.AreEqual('█', CpuBarFormatter.GetTrackBarGlyph(85.0));
             Assert.AreEqual('█', CpuBarFormatter.GetTrackBarGlyph(95.0));
             Assert.AreEqual('█', CpuBarFormatter.GetTrackBarGlyph(100.0));
         }

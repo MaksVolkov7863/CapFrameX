@@ -884,11 +884,19 @@ namespace CapFrameX.Overlay
                     }
                 }
 
-                if (existingConfigEntry != null && CPU_LOAD_BAR_IDENTIFIERS.Contains(defaultEntry.Identifier)
-                    && string.Equals(existingConfigEntry.GroupName, "CPU", StringComparison.OrdinalIgnoreCase))
+                if (existingConfigEntry != null && CPU_LOAD_BAR_IDENTIFIERS.Contains(defaultEntry.Identifier))
                 {
-                    existingConfigEntry.GroupName = defaultEntry.GroupName;
-                    hasChanges = true;
+                    if (string.Equals(existingConfigEntry.GroupName, "CPU", StringComparison.OrdinalIgnoreCase))
+                    {
+                        existingConfigEntry.GroupName = defaultEntry.GroupName;
+                        hasChanges = true;
+                    }
+
+                    if (existingConfigEntry.ValueFontSize <= 130 && defaultEntry.ValueFontSize >= 200)
+                    {
+                        existingConfigEntry.ValueFontSize = defaultEntry.ValueFontSize;
+                        hasChanges = true;
+                    }
                 }
             }
 

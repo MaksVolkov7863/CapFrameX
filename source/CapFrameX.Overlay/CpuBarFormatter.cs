@@ -11,18 +11,18 @@ namespace CapFrameX.Overlay
     public static class CpuBarFormatter
     {
         // 8 vertical pillar height levels (U+2581..U+2588)
-        // ' ' represents idle / baseline (height 1/8)
+        // ' ' represents strictly 0% or idle / offline (height 1/8 baseline)
         // '▂', '▃', '▄', '▅', '▆', '▇', '█' represent rising load up to 100% tall pillar
         private static readonly char[] PillarGlyphs = new[]
         {
-            ' ', // 0 - 5%   (bottom baseline mark)
-            '▂', // 6 - 18%  (level 2)
-            '▃', // 19 - 31% (level 3)
-            '▄', // 32 - 45% (level 4 - half)
-            '▅', // 46 - 58% (level 5)
-            '▆', // 59 - 72% (level 6)
-            '▇', // 73 - 86% (level 7)
-            '█'  // 87 - 100% (level 8 - tall solid block)
+            ' ', // 0%       (flat baseline mark)
+            '▂', // 1 - 12%  (level 2 - clear visible column base even at low/desktop load)
+            '▃', // 13 - 25% (level 3)
+            '▄', // 26 - 38% (level 4)
+            '▅', // 39 - 51% (level 5 - half pillar)
+            '▆', // 52 - 64% (level 6)
+            '▇', // 65 - 77% (level 7)
+            '█'  // 78 - 100% (level 8 - tall solid pillar)
         };
 
         // Compact baseline glyphs (U+2581..U+2588)
@@ -33,23 +33,23 @@ namespace CapFrameX.Overlay
 
         /// <summary>
         /// Gets a vertical pillar glyph with 8 height levels (1/8 to full tall block).
-        /// Never returns full-height checkerboard shade '░'.
+        /// At low desktop/game loads (1-12%), displays level 2 '▂' so pillars never collapse into flat lines.
         /// </summary>
         public static char GetTrackBarGlyph(double loadPercent)
         {
-            if (double.IsNaN(loadPercent) || loadPercent <= 5.0)
+            if (double.IsNaN(loadPercent) || loadPercent <= 0.5)
                 return ' ';
-            if (loadPercent <= 18.0)
+            if (loadPercent <= 12.0)
                 return '▂';
-            if (loadPercent <= 31.0)
+            if (loadPercent <= 25.0)
                 return '▃';
-            if (loadPercent <= 45.0)
+            if (loadPercent <= 38.0)
                 return '▄';
-            if (loadPercent <= 58.0)
+            if (loadPercent <= 51.0)
                 return '▅';
-            if (loadPercent <= 72.0)
+            if (loadPercent <= 64.0)
                 return '▆';
-            if (loadPercent <= 86.0)
+            if (loadPercent <= 77.0)
                 return '▇';
             return '█';
         }
